@@ -217,12 +217,6 @@
     <div class="small">Averages + streak without punishment. Missed days do not reset streak.</div>
     <div id="weekList" class="weeklist" style="margin-top:10px"></div>
     <div class="hr"></div>
-    <div class="field">
-      <label>Weekly intention (one-line focus)</label>
-      <input type="text" id="weeklyIntention" placeholder="e.g., Front-load water by noon">
-    </div>
-
-    <div class="hr"></div>
     <details>
       <summary>Milestones & Projections</summary>
       <div class="field">
@@ -266,7 +260,7 @@
 </main>
 
 <footer class="wrap" style="margin:24px 0 40px">
-  <div class="small">Daily Four — local, private, and yours. Export JSON for backup any time.</div>
+  <div class="small">Daily Four — Export JSON for backup any time.</div>
 </footer>
 
 <script>
@@ -295,7 +289,12 @@ let milesDone = loadJSON(MILE_DONE_KEY, {});
 const els = {};
 ["dateLabel","prevDay","nextDay","todayBtn","settingsBtn","water","cal","sleep","steps","readToggle","journalToggle","notes","waterVal","calVal","sleepVal","stepsVal","addonVal","waterBar","calBar","sleepBar","stepsBar","addonBar","waterGoalPill","calGoalPill","sleepGoalPill","stepsGoalPill","saveBtn","clearDayBtn","exportBtn","importBtn","importFile","weekList","dayScore","settings","themeSel","cfgWater","cfgCal","cfgSleep","cfgSteps","addonLogic","startDate","lossMin","lossMax","milestones","weeklyIntention","dailyMotivation","streak","saveSettings","resetAll","celebrate","cycleToday"].forEach(id=>els[id]=document.getElementById(id));
 
-function fmtDateKey(d){ return d.toISOString().slice(0,10); }
+function fmtDateKey(d){
+    const y = d.getFullYear();
+    const m = String(d.getMonth()+1).padStart(2,'0');
+    const day = String(d.getDate()).padStart(2,'0');
+    return `${y}-${m}-${day}`;
+}
 function fmtHuman(d){ return d.toLocaleDateString(undefined, {weekday:"short", month:"short", day:"numeric"}); }
 let current = new Date();
 
