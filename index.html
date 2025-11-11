@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Daily Four</title>
+<link rel="manifest" href="./manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Daily Four">
+<link rel="apple-touch-icon" href="./icon-192.png">
+<style>
+  :root{
+    --bg:#0f1115;
+    --card:#171a21;
+    --muted:#2a2f3a;
+    --text:#f3f5f7;
+    --sub:#c9d1d9;
+    --accent:#79b8ff;
+    --accent2:#5ee173;
+    --good:#5ee173;
+    --warn:#ffd166;
+    --bad:#ef476f;
+  }
+  [data-theme="light"]{
+    --bg:#f7f9fc;
+    --card:#ffffff;
+    --muted:#dfe6ef;
+    --text:#0c1020;
+    --sub:#475569;
+    --accent:#2563eb;
+    --accent2:#16a34a;
+    --good:#16a34a;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;
+    font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+    background:var(--bg);
+    color:var(--text);
+    line-height:1.45;
+  }
+  header{
+    position:sticky; top:0; z-index:20;
+    background:linear-gradient(180deg, rgba(15,17,21,0.97), rgba(15,17,21,0.75));
+    backdrop-filter: blur(8px);
+    border-bottom:1px solid #1f2430;
+  }
+  .wrap{max-width:980px; margin:0 auto; padding:14px}
+  h1{margin:0; font-size:20px; letter-spacing:0.2px}
+  .sub{color:var(--sub); font-size:13px}
+  .row{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
+  .spacer{flex:1}
+  button, input, select, textarea{font:inherit; color:inherit}
+  button{background:var(--muted); color:var(--text); border:1px solid #303645;
+    padding:10px 14px; border-radius:10px; cursor:pointer}
+  button.ghost{background:transparent; border-color:#303645}
+  .card{background:var(--card); border:1px solid #1f2430; border-radius:14px; padding:14px;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.25)}
+  .grid{display:grid; gap:14px}
+  @media(min-width:860px){ .grid{grid-template-columns:1.1fr .9fr} }
+  .field{display:grid; gap:6px; margin-bottom:10px}
+  label{font-size:13px; color:var(--sub)}
+  input[type="number"], input[type="text"], input[type="date"], select, textarea{
+    width:100%; background:#0c0e12; border:1px solid #2a2f3a; border-radius:10px; padding:10px 12px;
+  }
+  [data-theme="light"] input, [data-theme="light"] select, [data-theme="light"] textarea{
+    background:#f8fafc; border-color:#e5e7eb;
+  }
+  .kpi{display:grid; grid-template-columns: 1fr auto; align-items:center; gap:10px; margin-bottom:8px}
+  .bar{height:10px; background:#10131a; border-radius:999px; overflow:hidden; border:1px solid #242a36}
+  .bar>i{display:block; height:100%; width:0; background:linear-gradient(90deg, var(--accent), var(--accent2))}
+  .val{font-size:12px; color:var(--sub)}
+  .small{font-size:12px; color:var(--sub)}
+  .pill{display:inline-flex; padding:6px 10px; border-radius:999px; font-size:12px; background:#10131a; border:1px solid #2a2f3a; gap:8px; align-items:center}
+  .split{display:grid; gap:10px}
+  @media(min-width:640px){ .split{grid-template-columns:1fr 1fr} }
+  .toggle{display:inline-flex; align-items:center; gap:8px; padding:8px 10px; border-radius:999px; border:1px solid #303645; cursor:pointer; user-select:none}
+  .dot{width:10px; height:10px; border-radius:50%; background:#555}
+  .toggle.on .dot{background:var(--good)}
+  .hr{height:1px; background:#222; margin:12px 0}
+  .weeklist{display:grid; gap:8px}
+  .badge{display:inline-flex; align-items:center; gap:6px; padding:6px 8px; border-radius:999px; font-size:11px; border:1px solid #2a2f3a; background:#10131a}
+  .chip{display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px; border:1px solid #2a2f3a}
+  .quote{font-style:italic; color:var(--sub); border-left:3px solid var(--accent); padding-left:10px}
+  .celebrate{background:#0c2a12; border:1px solid #1f5f2e; color:#d1f7d6; border-radius:12px; padding:10px 12px; display:none}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap row">
+    <div>
+      <h1>Daily Four</h1>
+      <div class="sub">Hydrate • Fuel • Sleep • Move • Reflect</div>
+    </div>
+    <div class="spacer"></div>
+    <div class="row">
+      <button id="prevDay" class="ghost" title="Previous day" type="button">◀</button>
+      <div class="chip" id="dateLabel"></div>
+      <button id="nextDay" class="ghost" title="Next day" type="button">▶</button>
+      <button id="todayBtn" class="ghost" type="button">Today</button>
+      <button id="settingsBtn" type="button">Settings</button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap grid" id="app">
+  <section class="card">
+    <div class="row" style="align-items:flex-start">
+      <div>
+        <h2 style="margin:6px 0 6px">Daily Check-in <span class="chip"><b id="dayScore">0</b>/5</span></h2>
+        <div class="quote" id="dailyMotivation"></div>
+      </div>
+      <div class="spacer"></div>
+      <div>
+        <span class="badge">Streak <b id="streak"></b> days</span>
+      </div>
+    </div>
+
+    <div id="celebrate" class="celebrate"></div>
+
+    <div class="split">
+      <div>
+        <div class="field">
+          <label>Water (oz)</label>
+          <div class="row" style="gap:8px; flex-wrap:wrap">
+            <input type="number" id="water" min="0" step="1" placeholder="0" inputmode="numeric">
+            <span class="pill" id="waterGoalPill">Goal: 100 oz</span>
+          </div>
+          <div class="row" style="gap:8px; flex-wrap:wrap">
+            <button class="ghost addW" data-add="8" type="button">+8</button>
+            <button class="ghost addW" data-add="12" type="button">+12</button>
+            <button class="ghost addW" data-add="16" type="button">+16</button>
+            <button class="ghost addW" data-add="20" type="button">+20</button>
+            <button class="ghost addW" data-add="32" type="button">+32</button>
+            <button id="waterReset" class="ghost" type="button">Reset</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Calories (kcal)</label>
+          <div class="row" style="gap:8px; flex-wrap:wrap">
+            <input type="number" id="cal" min="0" step="1" placeholder="0" inputmode="numeric">
+            <span class="pill" id="calGoalPill">Max: 1700</span>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Sleep (hours)</label>
+          <div class="row" style="gap:8px; flex-wrap:wrap">
+            <input type="number" id="sleep" min="0" step="0.25" placeholder="0" inputmode="decimal">
+            <span class="pill" id="sleepGoalPill">Min: 7</span>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Steps</label>
+          <div class="row" style="gap:8px; flex-wrap:wrap">
+            <input type="number" id="steps" min="0" step="100" placeholder="0" inputmode="numeric">
+            <span class="pill" id="stepsGoalPill">Min: 8000</span>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="field">
+          <label>Add-on (choose one)</label>
+          <div class="row" style="gap:8px; flex-wrap:wrap">
+            <div class="toggle" id="readToggle"><span class="dot"></span> Reading (10+ min)</div>
+            <div class="toggle" id="journalToggle"><span class="dot"></span> Journaling (5+ min)</div>
+          </div>
+          <div class="small">Either counts as complete (configurable in Settings).</div>
+        </div>
+
+        <div class="field">
+          <label>Cycle</label>
+          <select id="cycleToday">
+            <option value="">—</option>
+            <option>Period day</option>
+            <option>PMS symptoms</option>
+            <option>Ovulation day (estimated)</option>
+          </select>
+          <div class="small">Estimates only; for convenience in one view.</div>
+        </div>
+
+        <div class="field">
+          <label>Notes</label>
+          <textarea id="notes" rows="5" placeholder="How did the day go? Anything to remember?"></textarea>
+        </div>
+
+        <div class="row">
+          <button id="saveBtn" type="button">Save Day</button>
+          <button id="clearDayBtn" class="ghost" type="button">Clear Day</button>
+          <div class="spacer"></div>
+          <button id="exportBtn" class="ghost" type="button">Export JSON</button>
+          <button id="importBtn" class="ghost" type="button">Import</button>
+          <input type="file" id="importFile" accept=".json" style="display:none">
+        </div>
+      </div>
+    </div>
+
+    <div class="hr"></div>
+
+    <div>
+      <h3 style="margin:8px 0">Daily Progress</h3>
+      <div class="kpi"><div>Water</div><div class="val" id="waterVal">0 / 100 oz</div><div class="bar"><i id="waterBar"></i></div></div>
+      <div class="kpi"><div>Calories</div><div class="val" id="calVal">0 / ≤1700</div><div class="bar"><i id="calBar"></i></div></div>
+      <div class="kpi"><div>Sleep</div><div class="val" id="sleepVal">0 / ≥7 h</div><div class="bar"><i id="sleepBar"></i></div></div>
+      <div class="kpi"><div>Steps</div><div class="val" id="stepsVal">0 / ≥8000</div><div class="bar"><i id="stepsBar"></i></div></div>
+      <div class="kpi"><div>Add-on</div><div class="val" id="addonVal">Not done</div><div class="bar"><i id="addonBar"></i></div></div>
+    </div>
+  </section>
+
+  <aside class="card">
+    <h2 style="margin-top:0">This Week</h2>
+    <div class="small">Averages + streak without punishment. Missed days do not reset streak.</div>
+    <div id="weekList" class="weeklist" style="margin-top:10px"></div>
+    <div class="hr"></div>
+    <div class="field">
+      <label>Weekly intention (one-line focus)</label>
+      <input type="text" id="weeklyIntention" placeholder="e.g., Front-load water by noon">
+    </div>
+
+    <div class="hr"></div>
+    <details>
+      <summary>Milestones & Projections</summary>
+      <div class="field">
+        <label>Program start date</label>
+        <input type="date" id="startDate">
+      </div>
+      <div class="field">
+        <label>Expected weekly loss (range, lbs/wk)</label>
+        <div class="row" style="gap:8px">
+          <input type="number" id="lossMin" step="0.1" value="0.5">
+          <input type="number" id="lossMax" step="0.1" value="1.5">
+        </div>
+        <div class="small">Week 1 is an adjustment buffer and not counted in projections.</div>
+      </div>
+      <div id="milestones" class="weeklist"></div>
+    </details>
+
+    <div class="hr"></div>
+    <details id="settings">
+      <summary>Settings</summary>
+      <div class="field"><label>Theme</label>
+        <select id="themeSel">
+          <option value="dark">Dark (calm)</option>
+          <option value="light">Light</option>
+        </select>
+        <div class="small">Changing this previews instantly.</div>
+      </div>
+      <div class="field"><label>Water goal (oz)</label><input type="number" id="cfgWater" min="0" step="1" value="100"></div>
+      <div class="field"><label>Calories max</label><input type="number" id="cfgCal" min="0" step="10" value="1700"></div>
+      <div class="field"><label>Sleep min (hours)</label><input type="number" id="cfgSleep" min="0" step="0.25" value="7"></div>
+      <div class="field"><label>Steps min</label><input type="number" id="cfgSteps" min="0" step="100" value="8000"></div>
+      <div class="field"><label>Add-on logic</label>
+        <select id="addonLogic">
+          <option value="either">Either reading or journaling counts</option>
+          <option value="both">Require both</option>
+        </select>
+      </div>
+      <div class="row"><button id="saveSettings" type="button">Save Settings</button><button id="resetAll" class="ghost" type="button">Reset All Data</button></div>
+    </details>
+  </aside>
+</main>
+
+<footer class="wrap" style="margin:24px 0 40px">
+  <div class="small">Daily Four — local, private, and yours. Export JSON for backup any time.</div>
+</footer>
+
+<script>
+// ---------- Storage ----------
+const LS_KEY = "dailyfour:data:v2";
+const CFG_KEY = "dailyfour:cfg:v2";
+const INTENT_KEY = "dailyfour:intentions:v2";
+const MILE_DONE_KEY = "dailyfour:milesdone:v1";
+function loadJSON(key, fb){ try{ return JSON.parse(localStorage.getItem(key)||"") || fb; }catch(e){ return fb } }
+function saveJSON(key, val){ localStorage.setItem(key, JSON.stringify(val)); }
+
+// ---------- Config ----------
+let cfg = Object.assign({
+  theme:"dark",
+  goals:{water:100, cal:1700, sleep:7, steps:8000},
+  addonLogic:"either",
+  startDate:null,
+  lossMin:0.5,
+  lossMax:1.5
+}, loadJSON(CFG_KEY, {}));
+let data = loadJSON(LS_KEY, {});
+let intentions = loadJSON(INTENT_KEY, {});
+let milesDone = loadJSON(MILE_DONE_KEY, {});
+
+// ---------- Helpers ----------
+const els = {};
+["dateLabel","prevDay","nextDay","todayBtn","settingsBtn","water","cal","sleep","steps","readToggle","journalToggle","notes","waterVal","calVal","sleepVal","stepsVal","addonVal","waterBar","calBar","sleepBar","stepsBar","addonBar","waterGoalPill","calGoalPill","sleepGoalPill","stepsGoalPill","saveBtn","clearDayBtn","exportBtn","importBtn","importFile","weekList","dayScore","settings","themeSel","cfgWater","cfgCal","cfgSleep","cfgSteps","addonLogic","startDate","lossMin","lossMax","milestones","weeklyIntention","dailyMotivation","streak","saveSettings","resetAll","celebrate","cycleToday"].forEach(id=>els[id]=document.getElementById(id));
+
+function fmtDateKey(d){ return d.toISOString().slice(0,10); }
+function fmtHuman(d){ return d.toLocaleDateString(undefined, {weekday:"short", month:"short", day:"numeric"}); }
+let current = new Date();
+
+function applyTheme(){ document.documentElement.setAttribute("data-theme", cfg.theme==="light"?"light":"dark"); }
+applyTheme();
+
+// Preview theme instantly
+els.themeSel.value = cfg.theme;
+els.themeSel.onchange = ()=>{ cfg.theme = els.themeSel.value; applyTheme(); };
+
+// ---------- Motivation ----------
+const MOTIVATION = [
+  "Small hinges swing big doors. Just hit your four.",
+  "Front-load water, back-load wins.",
+  "You do not need perfect days, only honest ones.",
+  "Consistency is kinder than intensity.",
+  "A calm evening starts at noon. Sip, fuel, move, rest.",
+  "Today’s steps are votes for the future you.",
+  "No punishments. Only progress.",
+  "Your body learns your rhythm—teach it gently."
+];
+function setMotivation(){
+  const i = Math.floor(Math.random()*MOTIVATION.length);
+  els.dailyMotivation.textContent = MOTIVATION[i];
+}
+
+// ---------- Load/Save Day ----------
+function setBars(day){
+  const w = +day.water||0, c=+day.cal||0, s=+day.sleep||0, st=+day.steps||0;
+  els.waterVal.textContent = `${w} / ${cfg.goals.water} oz`;
+  els.waterBar.style.width = `${Math.min(100, (w/cfg.goals.water)*100)}%`;
+  els.calVal.textContent = `${c} / ≤${cfg.goals.cal}`;
+  els.calBar.style.width = `${Math.min(100, c ? (c/cfg.goals.cal)*100 : 0)}%`;
+  els.sleepVal.textContent = `${s} / ≥${cfg.goals.sleep} h`;
+  els.sleepBar.style.width = `${Math.min(100, (s/cfg.goals.sleep)*100)}%`;
+  els.stepsVal.textContent = `${st} / ≥${cfg.goals.steps}`;
+  els.stepsBar.style.width = `${Math.min(100, (st/cfg.goals.steps)*100)}%`;
+  const addonDone = cfg.addonLogic==="both" ? (day.reading && day.journal) : (day.reading || day.journal);
+  els.addonVal.textContent = addonDone ? "Done" : "Not done";
+  els.addonBar.style.width = addonDone ? "100%" : "0%";
+  let score = 0;
+  if(w>=cfg.goals.water) score++;
+  if(c>0 && c<=cfg.goals.cal) score++;
+  if(s>=cfg.goals.sleep) score++;
+  if(st>=cfg.goals.steps) score++;
+  if(addonDone) score++;
+  els.dayScore.textContent = score;
+}
+function loadDay(dkey){
+  const day = data[dkey] || {};
+  els.water.value = day.water ?? "";
+  els.cal.value = day.cal ?? "";
+  els.sleep.value = day.sleep ?? "";
+  els.steps.value = day.steps ?? "";
+  els.readToggle.classList.toggle("on", !!day.reading);
+  els.journalToggle.classList.toggle("on", !!day.journal);
+  els.notes.value = day.notes || "";
+  els.cycleToday.value = day.cycleToday || "";
+  setBars(day);
+  setMotivation();
+}
+function saveDay(){
+  const dk = fmtDateKey(current);
+  data[dk] = {
+    water: +els.water.value||0,
+    cal: +els.cal.value||0,
+    sleep: +els.sleep.value||0,
+    steps: +els.steps.value||0,
+    reading: els.readToggle.classList.contains("on"),
+    journal: els.journalToggle.classList.contains("on"),
+    notes: els.notes.value||"",
+    cycleToday: els.cycleToday.value||""
+  };
+  saveJSON(LS_KEY, data);
+  renderWeek();
+  updateStreak();
+  checkMilestoneCelebrate();
+}
+function clearDay(){
+  const dk = fmtDateKey(current);
+  delete data[dk];
+  saveJSON(LS_KEY, data);
+  loadDay(dk); renderWeek(); updateStreak();
+}
+
+// ---------- Week Summary ----------
+function getWeekRange(date){
+  const d = new Date(date);
+  const day = (d.getDay()+6)%7; // Monday=0
+  const monday = new Date(d); monday.setDate(d.getDate()-day);
+  return {monday};
+}
+function renderWeek(){
+  const {monday} = getWeekRange(current);
+  const list = [];
+  let sum = {water:0, cal:0, sleep:0, steps:0, addon:0, days:0, hitAll:0};
+  for(let i=0;i<7;i++){
+    const d = new Date(monday); d.setDate(monday.getDate()+i);
+    const k = fmtDateKey(d);
+    const day = data[k]||{};
+    const addonDone = cfg.addonLogic==="both" ? (day.reading && day.journal) : (day.reading || day.journal);
+    const hit = (day.water>=cfg.goals.water) && (day.cal>0 && day.cal<=cfg.goals.cal) && (day.sleep>=cfg.goals.sleep) && (day.steps>=cfg.goals.steps) && addonDone;
+    if(day.water || day.cal || day.sleep || day.steps || day.reading || day.journal || day.notes){
+      sum.days++; sum.water += +day.water||0; sum.cal += +day.cal||0; sum.sleep += +day.sleep||0; sum.steps += +day.steps||0; sum.addon += addonDone?1:0;
+      if(hit) sum.hitAll++;
+    }
+    list.push(`<div class="row" style="justify-content:space-between">
+      <div>${d.toLocaleDateString(undefined,{weekday:"short"})}</div>
+      <div class="small">${day.water||0}oz • ${day.cal||0}kcal • ${day.sleep||0}h • ${day.steps||0}st • ${addonDone?"add-on✓":"add-on—"}</div>
+    </div>`);
+  }
+  const weekAvg = sum.days?{
+    water: Math.round(sum.water/sum.days),
+    cal: Math.round(sum.cal/sum.days),
+    sleep: Math.round((sum.sleep/sum.days)*100)/100,
+    steps: Math.round(sum.steps/sum.days),
+    addonRate: Math.round((sum.addon/7)*100)
+  }:null;
+
+  let html = list.join("");
+  html += `<div class="hr"></div>`;
+  html += weekAvg? `<div class="small">Averages (${sum.days} tracked day${sum.days==1?"":"s"}): water ${weekAvg.water}oz • calories ${weekAvg.cal} • sleep ${weekAvg.sleep}h • steps ${weekAvg.steps} • add-on ${weekAvg.addonRate}% of week</div>`
+                 : `<div class="small">No entries yet this week.</div>`;
+  html += `<div class="hr"></div><div class="small">Hit-all days this week: <b>${sum.hitAll}</b>/7</div>`;
+  els.weekList.innerHTML = html;
+
+  const wkKey = fmtDateKey(monday)+"__intent";
+  els.weeklyIntention.value = intentions[wkKey] || "";
+  els.weeklyIntention.oninput = ()=>{ intentions[wkKey]=els.weeklyIntention.value; saveJSON(INTENT_KEY, intentions); };
+}
+
+// ---------- Streak ----------
+function updateStreak(){
+  let keys = Object.keys(data).sort();
+  let streak=0;
+  for(const k of keys){
+    const day = data[k];
+    const addonDone = cfg.addonLogic==="both" ? (day.reading && day.journal) : (day.reading || day.journal);
+    let score = 0;
+    if(day.water>=cfg.goals.water) score++;
+    if(day.cal>0 && day.cal<=cfg.goals.cal) score++;
+    if(day.sleep>=cfg.goals.sleep) score++;
+    if(day.steps>=cfg.goals.steps) score++;
+    if(addonDone) score++;
+    if(score>=4) streak+=1; // misses do not reset
+  }
+  els.streak.textContent = streak||0;
+}
+
+// ---------- Milestones ----------
+const MILES_WEEKS = [2,4,6,8,12,16,20,24,28,32];
+function renderMilestones(){
+  const start = cfg.startDate ? new Date(cfg.startDate) : null;
+  const list = [];
+  if(!start){
+    els.milestones.innerHTML = `<div class="small">Set a start date to see your milestone dates.</div>`;
+    return;
+  }
+  const adj = 7; // 1-week buffer
+  const base = new Date(start); base.setDate(base.getDate()+adj);
+  const today = new Date();
+  for(const w of MILES_WEEKS){
+    const d = new Date(base); d.setDate(base.getDate()+w*7);
+    const min = (cfg.lossMin*w).toFixed(1);
+    const max = (cfg.lossMax*w).toFixed(1);
+    const reached = today >= d;
+    const doneKey = `w${w}`;
+    const acknowledged = !!milesDone[doneKey];
+    list.push(`<div class="row" style="justify-content:space-between">
+      <div>Week ${w}</div>
+      <div class="small">${d.toLocaleDateString(undefined,{month:"short", day:"numeric", year:"numeric"})} • ${min}–${max} lbs ${reached? (acknowledged? "✅" : "🎉") : ""}</div>
+    </div>`);
+  }
+  els.milestones.innerHTML = list.join("");
+}
+function checkMilestoneCelebrate(){
+  if(!cfg.startDate) return;
+  const start = new Date(cfg.startDate);
+  const base = new Date(start); base.setDate(base.getDate()+7);
+  const today = new Date(); today.setHours(0,0,0,0);
+  for(const w of MILES_WEEKS){
+    const key = `w${w}`;
+    if(milesDone[key]) continue;
+    const d = new Date(base); d.setDate(base.getDate()+w*7);
+    d.setHours(0,0,0,0);
+    if(today>=d){
+      els.celebrate.textContent = `🎉 Milestone unlocked: Week ${w}! Keep your rhythm. (${(cfg.lossMin*w).toFixed(1)}–${(cfg.lossMax*w).toFixed(1)} lbs projected)`;
+      els.celebrate.style.display = "block";
+      // acknowledge on save or when user clicks it
+      els.celebrate.onclick = ()=>{
+        milesDone[key]=true; saveJSON(MILE_DONE_KEY, milesDone);
+        els.celebrate.style.display="none"; renderMilestones();
+      };
+      return;
+    }
+  }
+  els.celebrate.style.display="none";
+}
+
+// ---------- Settings ----------
+function initSettings(){
+  els.cfgWater.value = cfg.goals.water;
+  els.cfgCal.value = cfg.goals.cal;
+  els.cfgSleep.value = cfg.goals.sleep;
+  els.cfgSteps.value = cfg.goals.steps;
+  els.addonLogic.value = cfg.addonLogic;
+  els.startDate.value = cfg.startDate || "";
+  els.lossMin.value = cfg.lossMin;
+  els.lossMax.value = cfg.lossMax;
+  els.waterGoalPill.textContent = `Goal: ${cfg.goals.water} oz`;
+  els.calGoalPill.textContent = `Max: ${cfg.goals.cal}`;
+  els.sleepGoalPill.textContent = `Min: ${cfg.goals.sleep}`;
+  els.stepsGoalPill.textContent = `Min: ${cfg.goals.steps}`;
+  renderMilestones();
+}
+els.saveSettings.onclick = ()=>{
+  cfg.goals = { water:+els.cfgWater.value||100, cal:+els.cfgCal.value||1700, sleep:+els.cfgSleep.value||7, steps:+els.cfgSteps.value||8000 };
+  cfg.addonLogic = els.addonLogic.value;
+  cfg.startDate = els.startDate.value||null;
+  cfg.lossMin = +els.lossMin.value||0.5;
+  cfg.lossMax = +els.lossMax.value||1.5;
+  saveJSON(CFG_KEY, cfg);
+  initSettings();
+  loadDay(fmtDateKey(current));
+  renderWeek();
+  checkMilestoneCelebrate();
+  alert("Settings saved.");
+};
+els.resetAll.onclick = ()=>{
+  if(confirm("Erase all data and settings?")){
+    localStorage.removeItem(LS_KEY);
+    localStorage.removeItem(CFG_KEY);
+    localStorage.removeItem(INTENT_KEY);
+    localStorage.removeItem(MILE_DONE_KEY);
+    cfg = {theme: cfg.theme, goals:{water:100, cal:1700, sleep:7, steps:8000}, addonLogic:"either", startDate:null, lossMin:0.5, lossMax:1.5};
+    data = {}; intentions = {}; milesDone = {};
+    initSettings(); render(); alert("Reset complete.");
+  }
+};
+
+// ---------- Navigation ----------
+function render(){
+  els.dateLabel.textContent = fmtHuman(current);
+  const dk = fmtDateKey(current);
+  loadDay(dk); renderWeek(); updateStreak(); checkMilestoneCelebrate();
+}
+els.prevDay.onclick = ()=>{ current.setDate(current.getDate()-1); render(); };
+els.nextDay.onclick = ()=>{ current.setDate(current.getDate()+1); render(); };
+els.todayBtn.onclick = ()=>{ current = new Date(); render(); };
+els.settingsBtn.onclick = ()=>{ const d = document.getElementById("settings"); d.open = !d.open; };
+
+// toggles
+els.readToggle.onclick = ()=>{ els.readToggle.classList.toggle("on"); setBars({water:+els.water.value, cal:+els.cal.value, sleep:+els.sleep.value, steps:+els.steps.value, reading:els.readToggle.classList.contains("on"), journal:els.journalToggle.classList.contains("on")}); };
+els.journalToggle.onclick = ()=>{ els.journalToggle.classList.toggle("on"); setBars({water:+els.water.value, cal:+els.cal.value, sleep:+els.sleep.value, steps:+els.steps.value, reading:els.readToggle.classList.contains("on"), journal:els.journalToggle.classList.contains("on")}); };
+
+// water quick adds
+document.querySelectorAll(".addW").forEach(btn=>{
+  btn.addEventListener("click", ()=>{
+    const add = +btn.getAttribute("data-add");
+    const cur = +els.water.value || 0;
+    els.water.value = cur + add;
+    setBars({water:+els.water.value, cal:+els.cal.value, sleep:+els.sleep.value, steps:+els.steps.value, reading:els.readToggle.classList.contains("on"), journal:els.journalToggle.classList.contains("on")});
+  }, {passive:true});
+});
+document.getElementById("waterReset").onclick = ()=>{ els.water.value=""; setBars({water:0, cal:+els.cal.value, sleep:+els.sleep.value, steps:+els.steps.value, reading:els.readToggle.classList.contains("on"), journal:els.journalToggle.classList.contains("on")}); };
+
+// save/clear
+els.saveBtn.onclick = saveDay;
+els.clearDayBtn.onclick = clearDay;
+
+// export/import
+els.exportBtn.onclick = ()=>{
+  const blob = new Blob([JSON.stringify({cfg, data, intentions, milesDone}, null, 2)], {type:"application/json"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = "daily-four-backup.json"; a.click();
+  URL.revokeObjectURL(url);
+};
+els.importBtn.onclick = ()=> els.importFile.click();
+els.importFile.onchange = (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    try{
+      const obj = JSON.parse(reader.result);
+      if(obj.cfg) cfg = Object.assign(cfg, obj.cfg);
+      if(obj.data) data = obj.data;
+      if(obj.intentions) intentions = obj.intentions;
+      if(obj.milesDone) milesDone = obj.milesDone;
+      saveJSON(CFG_KEY, cfg); saveJSON(LS_KEY, data); saveJSON(INTENT_KEY, intentions); saveJSON(MILE_DONE_KEY, milesDone);
+      initSettings(); render();
+      alert("Import successful.");
+    }catch(err){ alert("Import failed: "+err.message); }
+  };
+  reader.readAsText(file);
+};
+
+// ---------- Init ----------
+initSettings();
+render();
+
+// ---------- Service worker ----------
+if("serviceWorker" in navigator){
+  window.addEventListener("load", ()=>{
+    navigator.serviceWorker.register("./sw.js").catch(()=>{});
+  });
+}
+</script>
+</body>
+</html>
