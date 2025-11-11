@@ -563,7 +563,7 @@ document.querySelectorAll(".addW").forEach(btn=>{
 document.getElementById("waterReset").onclick = ()=>{ els.water.value=""; setBars({water:0, cal:+els.cal.value, sleep:+els.sleep.value, steps:+els.steps.value, reading:els.readToggle.classList.contains("on"), journal:els.journalToggle.classList.contains("on")}); };
 
 // save/clear
-els.saveBtn.onclick = saveDay;
+els.saveBtn.onclick = () => { saveDay(); render(); };
 els.clearDayBtn.onclick = clearDay;
 
 // export/import
