@@ -19,8 +19,6 @@
     --accent:#79b8ff;
     --accent2:#5ee173;
     --good:#5ee173;
-    --warn:#ffd166;
-    --bad:#ef476f;
   }
   [data-theme="light"]{
     --bg:#f7f9fc;
@@ -78,7 +76,13 @@
   }
   .kpi{display:grid; grid-template-columns: 1fr auto; align-items:center; gap:10px; margin-bottom:8px}
   .bar{height:10px; background:#10131a; border-radius:999px; overflow:hidden; border:1px solid #242a36}
-  .bar>i{display:block; height:100%; width:0; background:linear-gradient(90deg, var(--accent), var(--accent2))}
+  .bar>i{display:block; height:100%; width:0}
+  /* Category bar colors (logo-inspired) */
+  .bar-water  > i{ background:linear-gradient(90deg,#38bdf8,#2563eb); } /* blue */
+  .bar-cal    > i{ background:linear-gradient(90deg,#f59e0b,#f97316); } /* orange */
+  .bar-sleep  > i{ background:linear-gradient(90deg,#a78bfa,#7c3aed); } /* purple */
+  .bar-steps  > i{ background:linear-gradient(90deg,#22c55e,#16a34a); } /* green */
+  .bar-addon  > i{ background:linear-gradient(90deg,#94a3b8,#64748b); } /* neutral */
   .val{font-size:12px; color:var(--sub)}
   .small{font-size:12px; color:var(--sub)}
   .pill{display:inline-flex; padding:6px 10px; border-radius:999px; font-size:12px; background:#10131a; border:1px solid #2a2f3a; gap:8px; align-items:center}
@@ -118,7 +122,9 @@
   <section class="card">
     <div class="row" style="align-items:flex-start">
       <div>
-        <h2 style="margin:6px 0 6px">Daily Check-in <span class="chip"><b id="dayScore">0</b>/5</span></h2>
+        <h2 style="margin:6px 0 6px">Daily Check-in
+          <span class="chip"><b id="dayScoreText">0/4</b></span>
+        </h2>
         <div class="quote" id="dailyMotivation"></div>
       </div>
       <div class="spacer"></div>
@@ -201,11 +207,11 @@
 
     <div>
       <h3 style="margin:8px 0">Daily Progress</h3>
-      <div class="kpi"><div>Water</div><div class="val" id="waterVal">0 / 100 oz</div><div class="bar"><i id="waterBar"></i></div></div>
-      <div class="kpi"><div>Calories</div><div class="val" id="calVal">0 / ≤1700</div><div class="bar"><i id="calBar"></i></div></div>
-      <div class="kpi"><div>Sleep</div><div class="val" id="sleepVal">0 / ≥7 h</div><div class="bar"><i id="sleepBar"></i></div></div>
-      <div class="kpi"><div>Steps</div><div class="val" id="stepsVal">0 / ≥8000</div><div class="bar"><i id="stepsBar"></i></div></div>
-      <div class="kpi"><div>Add-on</div><div class="val" id="addonVal">Not done</div><div class="bar"><i id="addonBar"></i></div></div>
+      <div class="kpi"><div>Water</div><div class="val" id="waterVal">0 / 100 oz</div><div class="bar bar-water"><i id="waterBar"></i></div></div>
+      <div class="kpi"><div>Calories</div><div class="val" id="calVal">0 / ≤1700</div><div class="bar bar-cal"><i id="calBar"></i></div></div>
+      <div class="kpi"><div>Sleep</div><div class="val" id="sleepVal">0 / ≥7 h</div><div class="bar bar-sleep"><i id="sleepBar"></i></div></div>
+      <div class="kpi"><div>Steps</div><div class="val" id="stepsVal">0 / ≥8000</div><div class="bar bar-steps"><i id="stepsBar"></i></div></div>
+      <div class="kpi"><div>Add-on</div><div class="val" id="addonVal">Not done</div><div class="bar bar-addon"><i id="addonBar"></i></div></div>
     </div>
   </section>
 
@@ -264,7 +270,7 @@
 // ---------- Storage ----------
 const LS_KEY = "dailyfour:data:v2";
 const CFG_KEY = "dailyfour:cfg:v2";
-const INTENT_KEY = "dailyfour:intentions:v2"; // kept for backward-compat, unused now
+const INTENT_KEY = "dailyfour:intentions:v2";
 const MILE_DONE_KEY = "dailyfour:milesdone:v1";
 function loadJSON(key, fb){ try{ return JSON.parse(localStorage.getItem(key)||"") || fb; }catch(e){ return fb } }
 function saveJSON(key, val){ localStorage.setItem(key, JSON.stringify(val)); }
@@ -279,7 +285,7 @@ let cfg = Object.assign({
   lossMax:1.5
 }, loadJSON(CFG_KEY, {}));
 let data = loadJSON(LS_KEY, {});
-let intentions = loadJSON(INTENT_KEY, {}); // legacy
+let intentions = loadJSON(INTENT_KEY, {});
 let milesDone = loadJSON(MILE_DONE_KEY, {});
 
 // ---------- Helpers ----------
@@ -290,7 +296,7 @@ const els = {};
  "waterBar","calBar","sleepBar","stepsBar","addonBar",
  "waterGoalPill","calGoalPill","sleepGoalPill","stepsGoalPill",
  "saveBtn","clearDayBtn","exportBtn","importBtn","importFile",
- "weekList","dayScore","settings","themeSel","cfgWater","cfgCal","cfgSleep","cfgSteps",
+ "weekList","dayScoreText","settings","themeSel","cfgWater","cfgCal","cfgSleep","cfgSteps",
  "addonLogic","startDate","lossMin","lossMax","milestones","dailyMotivation","streak",
  "saveSettings","resetAll","celebrate"
 ].forEach(id=>els[id]=document.getElementById(id));
@@ -325,29 +331,46 @@ function setMotivation(){
   els.dailyMotivation.textContent = MOTIVATION[i];
 }
 
+// ---------- Score helpers (4 core + optional add-on) ----------
+function scoreMain(day){
+  let main = 0;
+  if(day.water>=cfg.goals.water) main++;
+  if(day.cal>0 && day.cal<=cfg.goals.cal) main++;
+  if(day.sleep>=cfg.goals.sleep) main++;
+  if(day.steps>=cfg.goals.steps) main++;
+  return main;
+}
+function addonDoneFn(day){
+  return cfg.addonLogic==="both" ? (day.reading && day.journal) : (day.reading || day.journal);
+}
+function scoreDisplayText(day){
+  const main = scoreMain(day);
+  const addon = addonDoneFn(day);
+  const shown = (addon && main===4) ? 5 : main; // show 5/4 only if all four + add-on
+  return `${shown}/4`;
+}
+
 // ---------- Load/Save Day ----------
 function setBars(day){
   const w = +day.water||0, c=+day.cal||0, s=+day.sleep||0, st=+day.steps||0;
+
   els.waterVal.textContent = `${w} / ${cfg.goals.water} oz`;
   els.waterBar.style.width = `${Math.min(100, (w/cfg.goals.water)*100)}%`;
+
   els.calVal.textContent = `${c} / ≤${cfg.goals.cal}`;
   els.calBar.style.width = `${Math.min(100, c ? (c/cfg.goals.cal)*100 : 0)}%`;
+
   els.sleepVal.textContent = `${s} / ≥${cfg.goals.sleep} h`;
   els.sleepBar.style.width = `${Math.min(100, (s/cfg.goals.sleep)*100)}%`;
+
   els.stepsVal.textContent = `${st} / ≥${cfg.goals.steps}`;
   els.stepsBar.style.width = `${Math.min(100, (st/cfg.goals.steps)*100)}%`;
 
-  const addonDone = cfg.addonLogic==="both" ? (day.reading && day.journal) : (day.reading || day.journal);
+  const addonDone = addonDoneFn(day);
   els.addonVal.textContent = addonDone ? "Done" : "Not done";
   els.addonBar.style.width = addonDone ? "100%" : "0%";
 
-  let score = 0;
-  if(w>=cfg.goals.water) score++;
-  if(c>0 && c<=cfg.goals.cal) score++;
-  if(s>=cfg.goals.sleep) score++;
-  if(st>=cfg.goals.steps) score++;
-  if(addonDone) score++;
-  els.dayScore.textContent = score;
+  els.dayScoreText.textContent = scoreDisplayText(day);
 }
 function loadDay(dkey){
   const day = data[dkey] || {};
@@ -395,31 +418,29 @@ function renderWeek(){
   const {monday} = getWeekRange(current);
   const list = [];
   let sum = {water:0, cal:0, sleep:0, steps:0, addon:0, days:0, hitAll:0};
+
   for(let i=0;i<7;i++){
     const d = new Date(monday); d.setDate(monday.getDate()+i);
     const k = fmtDateKey(d);
     const day = data[k]||{};
-    const addonDone = cfg.addonLogic==="both" ? (day.reading && day.journal) : (day.reading || day.journal);
+    const addonDone = addonDoneFn(day);
+    const main = scoreMain(day);
+    const shown = (addonDone && main===4) ? 5 : main;
+    const hitAll = (main===4); // all four core met
 
-    const hits =
-      (day.water>=cfg.goals.water?1:0) +
-      (day.cal>0 && day.cal<=cfg.goals.cal?1:0) +
-      (day.sleep>=cfg.goals.sleep?1:0) +
-      (day.steps>=cfg.goals.steps?1:0) +
-      (addonDone?1:0);
-
-    const hitAll = hits>=5;
     if(day.water || day.cal || day.sleep || day.steps || day.reading || day.journal || day.notes){
       sum.days++; sum.water += +day.water||0; sum.cal += +day.cal||0; sum.sleep += +day.sleep||0; sum.steps += +day.steps||0; sum.addon += addonDone?1:0;
       if(hitAll) sum.hitAll++;
     }
+
     list.push(
       `<div class="row" style="justify-content:space-between">
         <div>${d.toLocaleDateString(undefined,{weekday:"short"})}</div>
-        <div class="small"><b>${hits}/5</b></div>
+        <div class="small"><b>${shown}/4</b></div>
       </div>`
     );
   }
+
   const weekAvg = sum.days?{
     water: Math.round(sum.water/sum.days),
     cal: Math.round(sum.cal/sum.days),
@@ -436,25 +457,15 @@ function renderWeek(){
   els.weekList.innerHTML = html;
 }
 
-// ---------- Streak (consecutive from today backward) ----------
+// ---------- Streak (consecutive days with all 4 core goals) ----------
 function updateStreak(){
   let streak = 0;
   const d = new Date(); d.setHours(0,0,0,0);
-
   while (true){
     const k = fmtDateKey(d);
     const day = data[k];
     if(!day) break;
-
-    const addonDone = cfg.addonLogic==="both" ? (day.reading && day.journal) : (day.reading || day.journal);
-    const hits =
-      (day.water>=cfg.goals.water?1:0) +
-      (day.cal>0 && day.cal<=cfg.goals.cal?1:0) +
-      (day.sleep>=cfg.goals.sleep?1:0) +
-      (day.steps>=cfg.goals.steps?1:0) +
-      (addonDone?1:0);
-
-    if(hits>=4){ streak++; d.setDate(d.getDate()-1); d.setHours(0,0,0,0); }
+    if(scoreMain(day)===4){ streak++; d.setDate(d.getDate()-1); d.setHours(0,0,0,0); }
     else break;
   }
   els.streak.textContent = streak;
@@ -469,7 +480,7 @@ function renderMilestones(){
     els.milestones.innerHTML = `<div class="small">Set a start date to see your milestone dates.</div>`;
     return;
   }
-  const adj = 7; // 1-week buffer
+  const adj = 7;
   const base = new Date(start); base.setDate(base.getDate()+adj);
   const today = new Date();
   for(const w of MILES_WEEKS){
@@ -497,7 +508,7 @@ function checkMilestoneCelebrate(){
     const d = new Date(base); d.setDate(base.getDate()+w*7);
     d.setHours(0,0,0,0);
     if(today>=d){
-      els.celebrate.textContent = `🎉 Milestone unlocked: Week ${w}! Keep your rhythm. (${(cfg.lossMin*w).toFixed(1)}–${(cfg.lossMax*w).toFixed(1)} lbs projected)`;
+      els.celebrate.textContent = `Milestone unlocked: Week ${w}. Keep your rhythm. (${(cfg.lossMin*w).toFixed(1)}–${(cfg.lossMax*w).toFixed(1)} lbs projected)`;
       els.celebrate.style.display = "block";
       els.celebrate.onclick = ()=>{
         milesDone[key]=true; saveJSON(MILE_DONE_KEY, milesDone);
@@ -580,7 +591,8 @@ document.querySelectorAll(".addW").forEach(btn=>{
     const add = +btn.getAttribute("data-add");
     const cur = +els.water.value || 0;
     els.water.value = cur + add;
-    setBars({water:+els.water.value, cal:+els.cal.value, sleep:+els.sleep.value, steps:+els.steps.value, reading:els.readToggle.classList.contains("on"), journal:els.journalToggle.classList.contains("on")});
+    setBars({water:+els.water.value, cal:+els.cal.value, sleep:+els.sleep.value, steps:+els.steps.value,
+             reading:els.readToggle.classList.contains("on"), journal:els.journalToggle.classList.contains("on")});
   }, {passive:true});
 });
 document.getElementById("waterReset").onclick = ()=>{ els.water.value=""; setBars({water:0, cal:+els.cal.value, sleep:+els.sleep.value, steps:+els.steps.value, reading:els.readToggle.classList.contains("on"), journal:els.journalToggle.classList.contains("on")}); };
