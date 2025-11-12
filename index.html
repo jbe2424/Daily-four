@@ -41,11 +41,13 @@
     color:var(--text);
     line-height:1.45;
   }
+  /* leave room for iPhone notch/status bar */
   header{
     position:sticky; top:0; z-index:20;
     background:linear-gradient(180deg, rgba(15,17,21,0.97), rgba(15,17,21,0.75));
     backdrop-filter: blur(8px);
     border-bottom:1px solid #1f2430;
+    padding-top: env(safe-area-inset-top);
   }
   .wrap{max-width:980px; margin:0 auto; padding:14px}
   h1{margin:0; font-size:20px; letter-spacing:0.2px}
@@ -85,6 +87,16 @@
   .chip{display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px; border:1px solid #2a2f3a}
   .quote{font-style:italic; color:var(--sub); border-left:3px solid var(--accent); padding-left:10px}
   .celebrate{background:#0c2a12; border:1px solid #1f5f2e; color:#d1f7d6; border-radius:12px; padding:10px 12px; display:none}
+
+  /* Light-mode fixes for black-looking elements */
+  [data-theme="light"] .pill{ background:#eef1f5; border-color:#cfd6df; color:#334155; }
+  [data-theme="light"] .bar{ background:#e5e7eb; border-color:#cfd6df; }
+  [data-theme="light"] .badge, [data-theme="light"] .chip{ background:#eef1f5; border-color:#cfd6df; color:#334155; }
+
+  /* Full-screen settings sheet */
+  #settings.sheet[open]{ position:fixed; inset:0; margin:0; background:var(--bg); z-index:1000; overflow:auto; padding:20px; border:none }
+  #settings.sheet summary{ display:none }
+  #closeSettings{ position:sticky; top:0; margin-bottom:10px }
 </style>
 </head>
 <body>
@@ -100,6 +112,7 @@
       <div class="chip" id="dateLabel"></div>
       <button id="nextDay" class="ghost" title="Next day" type="button">▶</button>
       <button id="todayBtn" class="ghost" type="button">Today</button>
+      <button id="refreshApp" class="ghost" type="button">Refresh App</button>
       <button id="settingsBtn" type="button">Settings</button>
     </div>
   </div>
@@ -129,10 +142,10 @@
             <span class="pill" id="waterGoalPill">Goal: 100 oz</span>
           </div>
           <div class="row" style="gap:8px; flex-wrap:wrap">
+            <!-- 8-oz intervals -->
             <button class="ghost addW" data-add="8" type="button">+8</button>
-            <button class="ghost addW" data-add="12" type="button">+12</button>
             <button class="ghost addW" data-add="16" type="button">+16</button>
-            <button class="ghost addW" data-add="20" type="button">+20</button>
+            <button class="ghost addW" data-add="24" type="button">+24</button>
             <button class="ghost addW" data-add="32" type="button">+32</button>
             <button id="waterReset" class="ghost" type="button">Reset</button>
           </div>
@@ -237,6 +250,7 @@
     <div class="hr"></div>
     <details id="settings">
       <summary>Settings</summary>
+      <button id="closeSettings" class="ghost" type="button">Close</button>
       <div class="field"><label>Theme</label>
         <select id="themeSel">
           <option value="dark">Dark (calm)</option>
@@ -287,13 +301,13 @@ let milesDone = loadJSON(MILE_DONE_KEY, {});
 
 // ---------- Helpers ----------
 const els = {};
-["dateLabel","prevDay","nextDay","todayBtn","settingsBtn","water","cal","sleep","steps","readToggle","journalToggle","notes","waterVal","calVal","sleepVal","stepsVal","addonVal","waterBar","calBar","sleepBar","stepsBar","addonBar","waterGoalPill","calGoalPill","sleepGoalPill","stepsGoalPill","saveBtn","clearDayBtn","exportBtn","importBtn","importFile","weekList","dayScore","settings","themeSel","cfgWater","cfgCal","cfgSleep","cfgSteps","addonLogic","startDate","lossMin","lossMax","milestones","weeklyIntention","dailyMotivation","streak","saveSettings","resetAll","celebrate","cycleToday"].forEach(id=>els[id]=document.getElementById(id));
+["dateLabel","prevDay","nextDay","todayBtn","settingsBtn","water","cal","sleep","steps","readToggle","journalToggle","notes","waterVal","calVal","sleepVal","stepsVal","addonVal","waterBar","calBar","sleepBar","stepsBar","addonBar","waterGoalPill","calGoalPill","sleepGoalPill","stepsGoalPill","saveBtn","clearDayBtn","exportBtn","importBtn","importFile","weekList","dayScore","settings","themeSel","cfgWater","cfgCal","cfgSleep","cfgSteps","addonLogic","startDate","lossMin","lossMax","milestones","weeklyIntention","dailyMotivation","streak","saveSettings","resetAll","celebrate","cycleToday","closeSettings","refreshApp"].forEach(id=>els[id]=document.getElementById(id));
 
 function fmtDateKey(d){
-    const y = d.getFullYear();
-    const m = String(d.getMonth()+1).padStart(2,'0');
-    const day = String(d.getDate()).padStart(2,'0');
-    return `${y}-${m}-${day}`;
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
 }
 function fmtHuman(d){ return d.toLocaleDateString(undefined, {weekday:"short", month:"short", day:"numeric"}); }
 let current = new Date();
@@ -305,7 +319,7 @@ applyTheme();
 els.themeSel.value = cfg.theme;
 els.themeSel.onchange = ()=>{ cfg.theme = els.themeSel.value; applyTheme(); };
 
-// ---------- Motivation ----------
+// ---------- Motivation (stable by day) ----------
 const MOTIVATION = [
   "Small hinges swing big doors. Just hit your four.",
   "Front-load water, back-load wins.",
@@ -317,7 +331,9 @@ const MOTIVATION = [
   "Your body learns your rhythm—teach it gently."
 ];
 function setMotivation(){
-  const i = Math.floor(Math.random()*MOTIVATION.length);
+  // index by local day number so it doesn't flicker
+  const daysSinceEpoch = Math.floor(new Date(fmtDateKey(current)).getTime()/86400000);
+  const i = Math.abs(daysSinceEpoch) % MOTIVATION.length;
   els.dailyMotivation.textContent = MOTIVATION[i];
 }
 
@@ -397,13 +413,24 @@ function renderWeek(){
     const day = data[k]||{};
     const addonDone = cfg.addonLogic==="both" ? (day.reading && day.journal) : (day.reading || day.journal);
     const hit = (day.water>=cfg.goals.water) && (day.cal>0 && day.cal<=cfg.goals.cal) && (day.sleep>=cfg.goals.sleep) && (day.steps>=cfg.goals.steps) && addonDone;
+
+    // compute hits for minimal display
+    const hits =
+      (day.water>=cfg.goals.water?1:0) +
+      (day.cal>0 && day.cal<=cfg.goals.cal?1:0) +
+      (day.sleep>=cfg.goals.sleep?1:0) +
+      (day.steps>=cfg.goals.steps?1:0) +
+      (addonDone?1:0);
+
     if(day.water || day.cal || day.sleep || day.steps || day.reading || day.journal || day.notes){
       sum.days++; sum.water += +day.water||0; sum.cal += +day.cal||0; sum.sleep += +day.sleep||0; sum.steps += +day.steps||0; sum.addon += addonDone?1:0;
       if(hit) sum.hitAll++;
     }
+
+    // Minimal weekly row: "Mon   2/5"
     list.push(`<div class="row" style="justify-content:space-between">
       <div>${d.toLocaleDateString(undefined,{weekday:"short"})}</div>
-      <div class="small">${day.water||0}oz • ${day.cal||0}kcal • ${day.sleep||0}h • ${day.steps||0}st • ${addonDone?"add-on✓":"add-on—"}</div>
+      <div class="small"><b>${hits}/5</b></div>
     </div>`);
   }
   const weekAvg = sum.days?{
@@ -421,9 +448,12 @@ function renderWeek(){
   html += `<div class="hr"></div><div class="small">Hit-all days this week: <b>${sum.hitAll}</b>/7</div>`;
   els.weekList.innerHTML = html;
 
-  const wkKey = fmtDateKey(monday)+"__intent";
-  els.weeklyIntention.value = intentions[wkKey] || "";
-  els.weeklyIntention.oninput = ()=>{ intentions[wkKey]=els.weeklyIntention.value; saveJSON(INTENT_KEY, intentions); };
+  // guard if weeklyIntention input is not in DOM
+  if(els.weeklyIntention){
+    const wkKey = fmtDateKey(monday)+"__intent";
+    els.weeklyIntention.value = intentions[wkKey] || "";
+    els.weeklyIntention.oninput = ()=>{ intentions[wkKey]=els.weeklyIntention.value; saveJSON(INTENT_KEY, intentions); };
+  }
 }
 
 // ---------- Streak ----------
@@ -544,7 +574,18 @@ function render(){
 els.prevDay.onclick = ()=>{ current.setDate(current.getDate()-1); render(); };
 els.nextDay.onclick = ()=>{ current.setDate(current.getDate()+1); render(); };
 els.todayBtn.onclick = ()=>{ current = new Date(); render(); };
-els.settingsBtn.onclick = ()=>{ const d = document.getElementById("settings"); d.open = !d.open; };
+
+// Settings as full-screen sheet
+els.settingsBtn.onclick = ()=>{
+  const d = document.getElementById("settings");
+  d.classList.add("sheet");
+  d.open = true;
+};
+els.closeSettings.onclick = ()=>{
+  const d = document.getElementById("settings");
+  d.open = false;
+  d.classList.remove("sheet");
+};
 
 // toggles
 els.readToggle.onclick = ()=>{ els.readToggle.classList.toggle("on"); setBars({water:+els.water.value, cal:+els.cal.value, sleep:+els.sleep.value, steps:+els.steps.value, reading:els.readToggle.classList.contains("on"), journal:els.journalToggle.classList.contains("on")}); };
@@ -597,11 +638,25 @@ els.importFile.onchange = (e)=>{
 initSettings();
 render();
 
-// ---------- Service worker ----------
+// ---------- Service worker & Refresh App ----------
 if("serviceWorker" in navigator){
   window.addEventListener("load", ()=>{
     navigator.serviceWorker.register("./sw.js").catch(()=>{});
   });
+}
+// Refresh button: safely pull new code without touching data
+if('serviceWorker' in navigator){
+  els.refreshApp?.addEventListener('click', async ()=>{
+    try{
+      const reg = await navigator.serviceWorker.getRegistration();
+      if(reg){
+        await reg.update();
+        if(reg.waiting){ reg.waiting.postMessage({type:'SKIP_WAITING'}); }
+      }
+      setTimeout(()=>location.reload(), 800);
+    }catch{ location.reload(); }
+  });
+  navigator.serviceWorker.addEventListener('controllerchange', ()=>location.reload());
 }
 </script>
 </body>
