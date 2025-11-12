@@ -32,6 +32,13 @@
     --accent2:#16a34a;
     --good:#16a34a;
   }
+  /* Light-mode control fixes */
+  [data-theme="light"] button{ background:#ffffff; border-color:#cfd6df; color:#0c1020; }
+  [data-theme="light"] button.ghost{ background:transparent; border-color:#cfd6df; color:#0c1020; }
+  [data-theme="light"] .pill{ background:#eef1f5; border-color:#cfd6df; color:#334155; }
+  [data-theme="light"] .badge, [data-theme="light"] .chip{ background:#eef1f5; border-color:#cfd6df; color:#334155; }
+  [data-theme="light"] .bar{ background:#e5e7eb; border-color:#cfd6df; }
+
   *{box-sizing:border-box}
   html,body{height:100%}
   body{
@@ -41,13 +48,12 @@
     color:var(--text);
     line-height:1.45;
   }
-  /* leave room for iPhone notch/status bar */
   header{
     position:sticky; top:0; z-index:20;
     background:linear-gradient(180deg, rgba(15,17,21,0.97), rgba(15,17,21,0.75));
     backdrop-filter: blur(8px);
     border-bottom:1px solid #1f2430;
-    padding-top: env(safe-area-inset-top);
+    padding-top: calc(env(safe-area-inset-top) + 6px);
   }
   .wrap{max-width:980px; margin:0 auto; padding:14px}
   h1{margin:0; font-size:20px; letter-spacing:0.2px}
@@ -87,16 +93,6 @@
   .chip{display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px; border:1px solid #2a2f3a}
   .quote{font-style:italic; color:var(--sub); border-left:3px solid var(--accent); padding-left:10px}
   .celebrate{background:#0c2a12; border:1px solid #1f5f2e; color:#d1f7d6; border-radius:12px; padding:10px 12px; display:none}
-
-  /* Light-mode fixes for black-looking elements */
-  [data-theme="light"] .pill{ background:#eef1f5; border-color:#cfd6df; color:#334155; }
-  [data-theme="light"] .bar{ background:#e5e7eb; border-color:#cfd6df; }
-  [data-theme="light"] .badge, [data-theme="light"] .chip{ background:#eef1f5; border-color:#cfd6df; color:#334155; }
-
-  /* Full-screen settings sheet */
-  #settings.sheet[open]{ position:fixed; inset:0; margin:0; background:var(--bg); z-index:1000; overflow:auto; padding:20px; border:none }
-  #settings.sheet summary{ display:none }
-  #closeSettings{ position:sticky; top:0; margin-bottom:10px }
 </style>
 </head>
 <body>
@@ -112,7 +108,7 @@
       <div class="chip" id="dateLabel"></div>
       <button id="nextDay" class="ghost" title="Next day" type="button">▶</button>
       <button id="todayBtn" class="ghost" type="button">Today</button>
-      <button id="refreshApp" class="ghost" type="button">Refresh App</button>
+      <button id="refreshBtn" class="ghost" type="button" title="Update app shell">Refresh App</button>
       <button id="settingsBtn" type="button">Settings</button>
     </div>
   </div>
@@ -142,7 +138,6 @@
             <span class="pill" id="waterGoalPill">Goal: 100 oz</span>
           </div>
           <div class="row" style="gap:8px; flex-wrap:wrap">
-            <!-- 8-oz intervals -->
             <button class="ghost addW" data-add="8" type="button">+8</button>
             <button class="ghost addW" data-add="16" type="button">+16</button>
             <button class="ghost addW" data-add="24" type="button">+24</button>
@@ -187,19 +182,8 @@
         </div>
 
         <div class="field">
-          <label>Cycle</label>
-          <select id="cycleToday">
-            <option value="">—</option>
-            <option>Period day</option>
-            <option>PMS symptoms</option>
-            <option>Ovulation day (estimated)</option>
-          </select>
-          <div class="small">Estimates only; for convenience in one view.</div>
-        </div>
-
-        <div class="field">
           <label>Notes</label>
-          <textarea id="notes" rows="5" placeholder="How did the day go? Anything to remember?"></textarea>
+          <textarea id="notes" rows="5" placeholder="Journaling or reading takeaway"></textarea>
         </div>
 
         <div class="row">
@@ -250,7 +234,6 @@
     <div class="hr"></div>
     <details id="settings">
       <summary>Settings</summary>
-      <button id="closeSettings" class="ghost" type="button">Close</button>
       <div class="field"><label>Theme</label>
         <select id="themeSel">
           <option value="dark">Dark (calm)</option>
@@ -281,7 +264,7 @@
 // ---------- Storage ----------
 const LS_KEY = "dailyfour:data:v2";
 const CFG_KEY = "dailyfour:cfg:v2";
-const INTENT_KEY = "dailyfour:intentions:v2";
+const INTENT_KEY = "dailyfour:intentions:v2"; // kept for backward-compat, unused now
 const MILE_DONE_KEY = "dailyfour:milesdone:v1";
 function loadJSON(key, fb){ try{ return JSON.parse(localStorage.getItem(key)||"") || fb; }catch(e){ return fb } }
 function saveJSON(key, val){ localStorage.setItem(key, JSON.stringify(val)); }
@@ -296,12 +279,21 @@ let cfg = Object.assign({
   lossMax:1.5
 }, loadJSON(CFG_KEY, {}));
 let data = loadJSON(LS_KEY, {});
-let intentions = loadJSON(INTENT_KEY, {});
+let intentions = loadJSON(INTENT_KEY, {}); // legacy
 let milesDone = loadJSON(MILE_DONE_KEY, {});
 
 // ---------- Helpers ----------
 const els = {};
-["dateLabel","prevDay","nextDay","todayBtn","settingsBtn","water","cal","sleep","steps","readToggle","journalToggle","notes","waterVal","calVal","sleepVal","stepsVal","addonVal","waterBar","calBar","sleepBar","stepsBar","addonBar","waterGoalPill","calGoalPill","sleepGoalPill","stepsGoalPill","saveBtn","clearDayBtn","exportBtn","importBtn","importFile","weekList","dayScore","settings","themeSel","cfgWater","cfgCal","cfgSleep","cfgSteps","addonLogic","startDate","lossMin","lossMax","milestones","weeklyIntention","dailyMotivation","streak","saveSettings","resetAll","celebrate","cycleToday","closeSettings","refreshApp"].forEach(id=>els[id]=document.getElementById(id));
+["dateLabel","prevDay","nextDay","todayBtn","refreshBtn","settingsBtn",
+ "water","cal","sleep","steps","readToggle","journalToggle","notes",
+ "waterVal","calVal","sleepVal","stepsVal","addonVal",
+ "waterBar","calBar","sleepBar","stepsBar","addonBar",
+ "waterGoalPill","calGoalPill","sleepGoalPill","stepsGoalPill",
+ "saveBtn","clearDayBtn","exportBtn","importBtn","importFile",
+ "weekList","dayScore","settings","themeSel","cfgWater","cfgCal","cfgSleep","cfgSteps",
+ "addonLogic","startDate","lossMin","lossMax","milestones","dailyMotivation","streak",
+ "saveSettings","resetAll","celebrate"
+].forEach(id=>els[id]=document.getElementById(id));
 
 function fmtDateKey(d){
   const y = d.getFullYear();
@@ -314,12 +306,10 @@ let current = new Date();
 
 function applyTheme(){ document.documentElement.setAttribute("data-theme", cfg.theme==="light"?"light":"dark"); }
 applyTheme();
-
-// Preview theme instantly
 els.themeSel.value = cfg.theme;
 els.themeSel.onchange = ()=>{ cfg.theme = els.themeSel.value; applyTheme(); };
 
-// ---------- Motivation (stable by day) ----------
+// ---------- Motivation ----------
 const MOTIVATION = [
   "Small hinges swing big doors. Just hit your four.",
   "Front-load water, back-load wins.",
@@ -331,9 +321,7 @@ const MOTIVATION = [
   "Your body learns your rhythm—teach it gently."
 ];
 function setMotivation(){
-  // index by local day number so it doesn't flicker
-  const daysSinceEpoch = Math.floor(new Date(fmtDateKey(current)).getTime()/86400000);
-  const i = Math.abs(daysSinceEpoch) % MOTIVATION.length;
+  const i = Math.floor(Math.random()*MOTIVATION.length);
   els.dailyMotivation.textContent = MOTIVATION[i];
 }
 
@@ -348,9 +336,11 @@ function setBars(day){
   els.sleepBar.style.width = `${Math.min(100, (s/cfg.goals.sleep)*100)}%`;
   els.stepsVal.textContent = `${st} / ≥${cfg.goals.steps}`;
   els.stepsBar.style.width = `${Math.min(100, (st/cfg.goals.steps)*100)}%`;
+
   const addonDone = cfg.addonLogic==="both" ? (day.reading && day.journal) : (day.reading || day.journal);
   els.addonVal.textContent = addonDone ? "Done" : "Not done";
   els.addonBar.style.width = addonDone ? "100%" : "0%";
+
   let score = 0;
   if(w>=cfg.goals.water) score++;
   if(c>0 && c<=cfg.goals.cal) score++;
@@ -368,7 +358,6 @@ function loadDay(dkey){
   els.readToggle.classList.toggle("on", !!day.reading);
   els.journalToggle.classList.toggle("on", !!day.journal);
   els.notes.value = day.notes || "";
-  els.cycleToday.value = day.cycleToday || "";
   setBars(day);
   setMotivation();
 }
@@ -381,8 +370,7 @@ function saveDay(){
     steps: +els.steps.value||0,
     reading: els.readToggle.classList.contains("on"),
     journal: els.journalToggle.classList.contains("on"),
-    notes: els.notes.value||"",
-    cycleToday: els.cycleToday.value||""
+    notes: els.notes.value||""
   };
   saveJSON(LS_KEY, data);
   renderWeek();
@@ -412,9 +400,7 @@ function renderWeek(){
     const k = fmtDateKey(d);
     const day = data[k]||{};
     const addonDone = cfg.addonLogic==="both" ? (day.reading && day.journal) : (day.reading || day.journal);
-    const hit = (day.water>=cfg.goals.water) && (day.cal>0 && day.cal<=cfg.goals.cal) && (day.sleep>=cfg.goals.sleep) && (day.steps>=cfg.goals.steps) && addonDone;
 
-    // compute hits for minimal display
     const hits =
       (day.water>=cfg.goals.water?1:0) +
       (day.cal>0 && day.cal<=cfg.goals.cal?1:0) +
@@ -422,16 +408,17 @@ function renderWeek(){
       (day.steps>=cfg.goals.steps?1:0) +
       (addonDone?1:0);
 
+    const hitAll = hits>=5;
     if(day.water || day.cal || day.sleep || day.steps || day.reading || day.journal || day.notes){
       sum.days++; sum.water += +day.water||0; sum.cal += +day.cal||0; sum.sleep += +day.sleep||0; sum.steps += +day.steps||0; sum.addon += addonDone?1:0;
-      if(hit) sum.hitAll++;
+      if(hitAll) sum.hitAll++;
     }
-
-    // Minimal weekly row: "Mon   2/5"
-    list.push(`<div class="row" style="justify-content:space-between">
-      <div>${d.toLocaleDateString(undefined,{weekday:"short"})}</div>
-      <div class="small"><b>${hits}/5</b></div>
-    </div>`);
+    list.push(
+      `<div class="row" style="justify-content:space-between">
+        <div>${d.toLocaleDateString(undefined,{weekday:"short"})}</div>
+        <div class="small"><b>${hits}/5</b></div>
+      </div>`
+    );
   }
   const weekAvg = sum.days?{
     water: Math.round(sum.water/sum.days),
@@ -447,31 +434,30 @@ function renderWeek(){
                  : `<div class="small">No entries yet this week.</div>`;
   html += `<div class="hr"></div><div class="small">Hit-all days this week: <b>${sum.hitAll}</b>/7</div>`;
   els.weekList.innerHTML = html;
-
-  // guard if weeklyIntention input is not in DOM
-  if(els.weeklyIntention){
-    const wkKey = fmtDateKey(monday)+"__intent";
-    els.weeklyIntention.value = intentions[wkKey] || "";
-    els.weeklyIntention.oninput = ()=>{ intentions[wkKey]=els.weeklyIntention.value; saveJSON(INTENT_KEY, intentions); };
-  }
 }
 
-// ---------- Streak ----------
+// ---------- Streak (consecutive from today backward) ----------
 function updateStreak(){
-  let keys = Object.keys(data).sort();
-  let streak=0;
-  for(const k of keys){
+  let streak = 0;
+  const d = new Date(); d.setHours(0,0,0,0);
+
+  while (true){
+    const k = fmtDateKey(d);
     const day = data[k];
+    if(!day) break;
+
     const addonDone = cfg.addonLogic==="both" ? (day.reading && day.journal) : (day.reading || day.journal);
-    let score = 0;
-    if(day.water>=cfg.goals.water) score++;
-    if(day.cal>0 && day.cal<=cfg.goals.cal) score++;
-    if(day.sleep>=cfg.goals.sleep) score++;
-    if(day.steps>=cfg.goals.steps) score++;
-    if(addonDone) score++;
-    if(score>=4) streak+=1; // misses do not reset
+    const hits =
+      (day.water>=cfg.goals.water?1:0) +
+      (day.cal>0 && day.cal<=cfg.goals.cal?1:0) +
+      (day.sleep>=cfg.goals.sleep?1:0) +
+      (day.steps>=cfg.goals.steps?1:0) +
+      (addonDone?1:0);
+
+    if(hits>=4){ streak++; d.setDate(d.getDate()-1); d.setHours(0,0,0,0); }
+    else break;
   }
-  els.streak.textContent = streak||0;
+  els.streak.textContent = streak;
 }
 
 // ---------- Milestones ----------
@@ -513,7 +499,6 @@ function checkMilestoneCelebrate(){
     if(today>=d){
       els.celebrate.textContent = `🎉 Milestone unlocked: Week ${w}! Keep your rhythm. (${(cfg.lossMin*w).toFixed(1)}–${(cfg.lossMax*w).toFixed(1)} lbs projected)`;
       els.celebrate.style.display = "block";
-      // acknowledge on save or when user clicks it
       els.celebrate.onclick = ()=>{
         milesDone[key]=true; saveJSON(MILE_DONE_KEY, milesDone);
         els.celebrate.style.display="none"; renderMilestones();
@@ -565,7 +550,7 @@ els.resetAll.onclick = ()=>{
   }
 };
 
-// ---------- Navigation ----------
+// ---------- Navigation & app actions ----------
 function render(){
   els.dateLabel.textContent = fmtHuman(current);
   const dk = fmtDateKey(current);
@@ -574,17 +559,15 @@ function render(){
 els.prevDay.onclick = ()=>{ current.setDate(current.getDate()-1); render(); };
 els.nextDay.onclick = ()=>{ current.setDate(current.getDate()+1); render(); };
 els.todayBtn.onclick = ()=>{ current = new Date(); render(); };
-
-// Settings as full-screen sheet
-els.settingsBtn.onclick = ()=>{
-  const d = document.getElementById("settings");
-  d.classList.add("sheet");
-  d.open = true;
-};
-els.closeSettings.onclick = ()=>{
-  const d = document.getElementById("settings");
-  d.open = false;
-  d.classList.remove("sheet");
+els.settingsBtn.onclick = ()=>{ const d = document.getElementById("settings"); d.open = !d.open; };
+els.refreshBtn.onclick = async ()=>{
+  try{
+    if("serviceWorker" in navigator){
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map(r=>r.update().catch(()=>{})));
+    }
+  }catch(e){}
+  location.reload();
 };
 
 // toggles
@@ -638,25 +621,11 @@ els.importFile.onchange = (e)=>{
 initSettings();
 render();
 
-// ---------- Service worker & Refresh App ----------
+// ---------- Service worker ----------
 if("serviceWorker" in navigator){
   window.addEventListener("load", ()=>{
     navigator.serviceWorker.register("./sw.js").catch(()=>{});
   });
-}
-// Refresh button: safely pull new code without touching data
-if('serviceWorker' in navigator){
-  els.refreshApp?.addEventListener('click', async ()=>{
-    try{
-      const reg = await navigator.serviceWorker.getRegistration();
-      if(reg){
-        await reg.update();
-        if(reg.waiting){ reg.waiting.postMessage({type:'SKIP_WAITING'}); }
-      }
-      setTimeout(()=>location.reload(), 800);
-    }catch{ location.reload(); }
-  });
-  navigator.serviceWorker.addEventListener('controllerchange', ()=>location.reload());
 }
 </script>
 </body>
